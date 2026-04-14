@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Employee - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>📋 Attendance System</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/register">Register</a>
+            <a href="/mark">Mark Attendance</a>
+            <a href="/attendance">Records</a>
+        </nav>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>➕ Register New Employee</h2>
+            <div id="alert" class="alert"></div>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" id="name" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="email" required placeholder="john@company.com">
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="text" id="department" placeholder="Engineering">
+                </div>
+
+                <div class="form-group">
+                    <label>Capture Face Photo</label>
+                    <div id="video-container">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                    </div>
+                    <div class="capture-actions">
+                        <button type="button" class="btn btn-primary" onclick="startCamera()">📷 Start Camera</button>
+                        <button type="button" class="btn btn-success" onclick="capturePhoto()" id="captureBtn" disabled>📸 Capture</button>
+                    </div>
+                </div>
+
+                <div id="preview" style="display:none;margin:1rem 0;text-align:center;">
+                    <img id="previewImg" style="max-width:200px;border-radius:8px;">
+                    <p style="color:var(--success);font-weight:600;margin-top:0.5rem;">✓ Photo captured</p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:1rem;">Register Employee</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let photoData = null;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360 } });
+                document.getElementById('video').srcObject = stream;
+                document.getElementById('captureBtn').disabled = false;
+            } catch(e) {
+                showAlert('Could not access camera: ' + e.message, 'error');
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            photoData = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('previewImg').src = photoData;
+            document.getElementById('preview').style.display = 'block';
+            if (stream) { stream.getTracks().forEach(t => t.stop()); }
+        }
+
+        function showAlert(msg, type) {
+            const el = document.getElementById('alert');
+            el.className = 'alert alert-' + type;
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                department: document.getElementById('department').value,
+                photo: photoData
+            };
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(data.message, 'success');
+                    document.getElementById('registerForm').reset();
+                    document.getElementById('preview').style.display = 'none';
+                    photoData = null;
+                } else {
+                    showAlert(data.error, 'error');
+                }
+            } catch(err) {
+                showAlert('Network error', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

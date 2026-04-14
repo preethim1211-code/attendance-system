@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>📋 Attendance System</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/register">Register</a>
+            <a href="/mark">Mark Attendance</a>
+            <a href="/attendance">Records</a>
+        </nav>
+    </div>
+
+    <div class="container">
+        <div class="card" style="text-align:center;">
+            <h2>✅ Mark Attendance</h2>
+            <p style="color:var(--text-muted);margin-bottom:1rem;">Look at the camera and click capture to check in or out.</p>
+            <div id="alert" class="alert"></div>
+
+            <div id="video-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+            </div>
+
+            <div class="capture-actions">
+                <button class="btn btn-primary" onclick="startCamera()">📷 Start Camera</button>
+                <button class="btn btn-success" onclick="recognizeFace()" id="captureBtn" disabled>🔍 Recognize & Mark</button>
+            </div>
+
+            <div id="result" style="margin-top:1.5rem;display:none;">
+                <div id="resultIcon" style="font-size:4rem;"></div>
+                <h3 id="resultName" style="margin-top:0.5rem;"></h3>
+                <p id="resultMsg" style="color:var(--text-muted);"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360 } });
+                document.getElementById('video').srcObject = stream;
+                document.getElementById('captureBtn').disabled = false;
+            } catch(e) {
+                showAlert('Could not access camera: ' + e.message, 'error');
+            }
+        }
+
+        function showAlert(msg, type) {
+            const el = document.getElementById('alert');
+            el.className = 'alert alert-' + type;
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        async function recognizeFace() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const photoData = canvas.toDataURL('image/jpeg', 0.8);
+
+            document.getElementById('captureBtn').disabled = true;
+            document.getElementById('captureBtn').textContent = '⏳ Processing...';
+
+            try {
+                const res = await fetch('/api/recognize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ photo: photoData })
+                });
+                const data = await res.json();
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+
+                if (res.ok) {
+                    const icon = data.action === 'check_in' ? '👋' : data.action === 'check_out' ? '👋' : 'ℹ️';
+                    document.getElementById('resultIcon').textContent = icon;
+                    document.getElementById('resultName').textContent = data.name;
+                    document.getElementById('resultMsg').textContent = data.message;
+                    showAlert(data.message, 'success');
+                } else {
+                    document.getElementById('resultIcon').textContent = '❌';
+                    document.getElementById('resultName').textContent = '';
+                    document.getElementById('resultMsg').textContent = data.error;
+                    showAlert(data.error, 'error');
+                }
+            } catch(err) {
+                showAlert('Network error', 'error');
+            }
+
+            document.getElementById('captureBtn').disabled = false;
+            document.getElementById('captureBtn').textContent = '🔍 Recognize & Mark';
+        }
+    </script>
+</body>
+</html>

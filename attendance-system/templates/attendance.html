@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Records - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>📋 Attendance System</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/register">Register</a>
+            <a href="/mark">Mark Attendance</a>
+            <a href="/attendance">Records</a>
+        </nav>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid" id="stats">
+            <div class="stat-card"><div class="number" id="totalEmployees">-</div><div class="label">Total Employees</div></div>
+            <div class="stat-card"><div class="number" id="presentToday">-</div><div class="label">Present Today</div></div>
+            <div class="stat-card"><div class="number" id="checkedOut">-</div><div class="label">Checked Out</div></div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Attendance Records</h2>
+            <div class="form-group" style="max-width:250px;">
+                <label>Select Date</label>
+                <input type="date" id="dateFilter" onchange="loadAttendance()">
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceBody">
+                    <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('dateFilter').value = new Date().toISOString().split('T')[0];
+
+        async function loadAttendance() {
+            const date = document.getElementById('dateFilter').value;
+            const [attRes, empRes] = await Promise.all([
+                fetch('/api/attendance?date=' + date),
+                fetch('/api/employees')
+            ]);
+            const attendance = await attRes.json();
+            const employees = await empRes.json();
+
+            document.getElementById('totalEmployees').textContent = employees.length;
+            document.getElementById('presentToday').textContent = attendance.length;
+            document.getElementById('checkedOut').textContent = attendance.filter(a => a.check_out).length;
+
+            const tbody = document.getElementById('attendanceBody');
+            if (attendance.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No records for this date</td></tr>';
+                return;
+            }
+            tbody.innerHTML = attendance.map(a => `
+                <tr>
+                    <td><strong>${a.name}</strong></td>
+                    <td>${a.department || '-'}</td>
+                    <td>${a.check_in ? new Date(a.check_in).toLocaleTimeString() : '-'}</td>
+                    <td>${a.check_out ? new Date(a.check_out).toLocaleTimeString() : '<span style="color:var(--warning);">Still in</span>'}</td>
+                    <td><span class="badge badge-present">${a.status}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        loadAttendance();
+    </script>
+</body>
+</html>
